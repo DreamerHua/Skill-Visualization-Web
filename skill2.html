@@ -1,0 +1,1091 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>可视化我的能力项 App</title>
+    <script src="https://cdn.tailwindcss.com/3.3.5"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script> 
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f2f5; /* 页面浅灰色背景 */
+        }
+        /* Webkit 浏览器自定义滚动条 */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+        .browser-window {
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 10px 10px -5px rgba(0, 0, 0, 0.1);
+        }
+        .tab.active {
+            background-color: #ffffff; /* 活动标签页为白色 */
+            border-bottom-color: #ffffff;
+        }
+        .tab:not(.active) {
+            background-color: #e5e7eb; /* 非活动标签页为浅灰色 */
+        }
+        .tab:hover:not(.active) {
+            background-color: #d1d5db; /* 非活动标签页悬停时颜色变深 */
+        }
+        .address-bar input {
+            background-image: url('data:image/svg+xml;charset=UTF-8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="%239ca3af"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm0-2a6 6 0 100-12 6 6 0 000 12zm0-9a1 1 0 011 1v3a1 1 0 11-2 0V8a1 1 0 011-1z" clip-rule="evenodd" /></svg>');
+            background-repeat: no-repeat;
+            background-position: 0.75rem center;
+            background-size: 1rem;
+            padding-left: 2.5rem; /* 为图标留出空间 */
+        }
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(255, 255, 255, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            transition: opacity 0.3s ease-in-out;
+        }
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border-left-color: #09f;
+            animation: spin 1s ease infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        /* 星级评分样式 */
+        .star-rating .fa-star { color: #e5e7eb; cursor: pointer; }
+        .star-rating .fa-star.selected, .star-rating .fa-star:hover, .star-rating .fa-star:hover ~ .fa-star { color: #f59e0b; }
+
+        /* 模态框样式 */
+        .modal {
+            transition: opacity 0.25s ease;
+        }
+        .modal-content {
+            transition: all 0.25s ease;
+            max-height: 90vh;
+        }
+
+        /* D3 工具提示样式 */
+        .d3-tooltip {
+            position: absolute;
+            text-align: left;
+            padding: 8px 12px;
+            font-size: 0.875rem;
+            background: #333;
+            color: #fff;
+            border: 0px;
+            border-radius: 8px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s;
+            max-width: 250px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+            z-index: 10000; 
+        }
+        .d3-tooltip h4 {
+            margin-top: 0;
+            margin-bottom: 4px;
+            font-size: 1rem;
+            font-weight: 600;
+        }
+        .d3-tooltip p {
+            margin-bottom: 0;
+            font-size: 0.8rem;
+            white-space: normal; 
+        }
+        /* D3 图表节点样式 */
+        /* .links line {  移除了连线样式，因为不再显示连线 */
+            /* stroke: #999; */
+            /* stroke-opacity: 0.6; */
+        /* } */
+        .nodes circle {
+            stroke: #fff;
+            stroke-width: 1.5px;
+            cursor: grab; /* 改为 grab 表明可拖拽 */
+        }
+        .nodes circle:active {
+            cursor: grabbing; /* 拖拽过程中的光标 */
+        }
+        .nodes circle:hover {
+            stroke: #333;
+        }
+        .nodes text {
+            pointer-events: none; 
+            font-family: 'Inter', sans-serif;
+            font-size: 12px;
+            font-weight: 600; /* 增加字重 */
+            fill: #000000; /* 使用纯黑色提高对比度 */
+            text-anchor: middle;
+            dominant-baseline: central;
+            paint-order: stroke; /* 确保描边在文字后面 */
+            stroke: white;
+            stroke-width: 3px;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            text-rendering: geometricPrecision; /* 使用更精确的文本渲染 */
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        
+        /* 移除旧的背景文本类，改用单个文本元素 */
+        .node-label-bg {
+            display: none;
+        }
+
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen p-4 sm:p-8">
+
+    <div class="browser-window w-full max-w-screen-xl h-[calc(100vh-4rem)] sm:h-[calc(100vh-4rem)] md:h-[calc(100vh-80px)] bg-white rounded-lg overflow-hidden flex flex-col">
+        <!-- Browser Top Bar: Tabs, Address Bar -->
+        <div class="bg-gray-200 pt-2">
+            <div class="flex px-2">
+                <div class="tab active flex items-center bg-white text-gray-700 py-2 px-4 rounded-t-md border border-gray-300 border-b-0 relative -mb-px">
+                    <img id="faviconDisplay" src="data:image/svg+xml;charset=UTF-8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='currentColor' class='w-4 h-4 mr-2 text-blue-600'><path d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 7h2v2h-2z'></path></svg>" alt="Favicon" class="w-4 h-4 mr-2">
+                    <span id="pageTitleDisplay" class="text-sm">可视化我的能力项</span>
+                    <button class="ml-3 text-gray-400 hover:text-gray-600 text-xs">&times;</button>
+                </div>
+                <div class="tab flex items-center text-gray-500 py-2 px-4 rounded-t-md border border-gray-300 border-b-0 ml-1">
+                    <i class="fab fa-google w-4 h-4 mr-2 text-red-500"></i>
+                    <span class="text-sm">Google</span>
+                    <button class="ml-3 text-gray-400 hover:text-gray-600 text-xs">&times;</button>
+                </div>
+                <div class="flex items-center justify-center w-8 h-8 ml-1 text-gray-500 hover:bg-gray-300 rounded-md cursor-pointer">
+                    <i class="fas fa-plus"></i>
+                </div>
+            </div>
+        </div>
+        <!-- Address Bar and Navigation -->
+        <div class="bg-gray-100 p-2 flex items-center border-b border-gray-300">
+            <button id="browserBack" class="p-2 text-gray-500 hover:bg-gray-300 rounded-full mr-1 disabled:opacity-50" disabled><i class="fas fa-arrow-left"></i></button>
+            <button id="browserForward" class="p-2 text-gray-500 hover:bg-gray-300 rounded-full mr-1 disabled:opacity-50" disabled><i class="fas fa-arrow-right"></i></button>
+            <button class="p-2 text-gray-500 hover:bg-gray-300 rounded-full mr-2"><i class="fas fa-redo"></i></button>
+            <div class="address-bar flex-grow relative">
+                <input type="text" id="addressBarInput" value="app://skills/home" class="w-full bg-white rounded-full py-1.5 px-4 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500" readonly>
+                <i class="fas fa-star text-gray-400 hover:text-yellow-500 absolute right-3 top-1/2 transform -translate-y-1/2 cursor-pointer"></i>
+            </div>
+            <button class="p-2 text-gray-500 hover:bg-gray-300 rounded-full ml-2"><i class="fas fa-ellipsis-h"></i></button>
+        </div>
+
+        <!-- App Content Area -->
+        <div class="flex-grow flex overflow-hidden">
+            <!-- App Sidebar Navigation -->
+            <nav class="w-56 bg-slate-800 text-white p-4 space-y-2 flex-shrink-0 overflow-y-auto">
+                <div class="text-2xl font-bold mb-6 text-center">
+                    <i class="fas fa-chart-pie mr-2 text-sky-400"></i>能力<span class="text-sky-400">可视化</span>
+                </div>
+                <a href="#home" class="nav-link active-nav-link flex items-center px-3 py-2.5 rounded-lg hover:bg-slate-700 transition-colors">
+                    <i class="fas fa-home w-5 mr-3"></i> 首页
+                </a>
+                <a href="#form" class="nav-link flex items-center px-3 py-2.5 rounded-lg hover:bg-slate-700 transition-colors">
+                    <i class="fas fa-plus-circle w-5 mr-3"></i> 添加能力
+                </a>
+                <a href="#visualizations" class="nav-link flex items-center px-3 py-2.5 rounded-lg hover:bg-slate-700 transition-colors">
+                    <i class="fas fa-palette w-5 mr-3"></i> 可视化总览
+                </a>
+                <a href="#settings" class="nav-link flex items-center px-3 py-2.5 rounded-lg hover:bg-slate-700 transition-colors">
+                    <i class="fas fa-cog w-5 mr-3"></i> 设置
+                </a>
+                <div class="pt-4 mt-4 border-t border-slate-700">
+                    <div class="text-xs text-slate-400">用户ID: <span id="userIdDisplay" class="font-mono"></span></div>
+                </div>
+            </nav>
+
+            <!-- Main Content Area -->
+            <main id="appContent" class="flex-grow p-6 bg-gray-50 overflow-y-auto">
+                <!-- 页面内容将在此加载 -->
+            </main>
+        </div>
+        
+        <!-- App Footer (Optional) -->
+        <footer class="bg-gray-100 text-center p-2 text-xs text-gray-500 border-t border-gray-300">
+            © 2025 可视化我的能力项 App. All rights reserved.
+        </footer>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading-overlay opacity-0 pointer-events-none">
+        <div class="spinner"></div>
+    </div>
+
+    <!-- Modal Structure (hidden by default) -->
+    <div id="skillModal" class="modal fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center p-4 z-50 hidden opacity-0">
+        <div class="modal-content bg-white rounded-lg shadow-xl w-full max-w-lg p-6 transform scale-95">
+            <div class="flex justify-between items-center mb-4">
+                <h3 id="modalTitle" class="text-xl font-semibold text-gray-800">能力详情</h3>
+                <button id="closeModalButton" class="text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times fa-lg"></i>
+                </button>
+            </div>
+            <div id="modalBody" class="text-gray-700">
+                <!-- 模态框内容在此 -->
+            </div>
+            <div id="modalFooter" class="mt-6 flex justify-end space-x-3">
+                <!-- 模态框按钮在此 -->
+            </div>
+        </div>
+    </div>
+
+    <!-- D3 Tooltip (initially hidden) -->
+    <div id="d3Tooltip" class="d3-tooltip"></div>
+
+
+    <script type="module">
+        // Firebase 相关导入 (未来集成时使用)
+        // import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        // import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        // import { getFirestore, doc, collection, addDoc, getDocs, onSnapshot, setDoc, deleteDoc, updateDoc, query, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        const __app_id = 'skill-viz-app-prototype';
+        const __firebase_config = JSON.stringify({
+            apiKey: "YOUR_API_KEY", 
+            authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+            projectId: "YOUR_PROJECT_ID",
+            storageBucket: "YOUR_PROJECT_ID.appspot.com",
+            messagingSenderId: "YOUR_SENDER_ID",
+            appId: "YOUR_APP_ID"
+        });
+
+        let db, auth, userId;
+        let currentEditingSkillId = null; 
+
+        userId = crypto.randomUUID(); 
+        document.getElementById('userIdDisplay').textContent = userId.substring(0, 12) + '...';
+
+        // --- 模拟数据 (utils/data.js) ---
+        const mockSkills = [ // Using a slightly larger dataset for nebula view
+            { id: '1', name: 'JavaScript (ES6+)', category: '专业技能', proficiency: 5, description: '精通 JavaScript 现代特性...', examples: [], favorite: true, relatedSkills: [] },
+            { id: '2', name: 'React.js', category: '专业技能', proficiency: 4, description: '熟练使用 React 进行组件化开发...', examples: [], favorite: false, relatedSkills: [] },
+            { id: '3', name: 'Tailwind CSS', category: '专业技能', proficiency: 4, description: '高效使用 Tailwind CSS...', examples: [], favorite: true, relatedSkills: [] },
+            { id: '4', name: '沟通能力', category: '软技能', proficiency: 5, description: '优秀的跨团队沟通与协作能力...', examples: [], favorite: false, relatedSkills: [] },
+            { id: '5', name: '项目管理', category: '软技能', proficiency: 3, description: '熟悉敏捷开发流程...', examples: [], favorite: false, relatedSkills: [] },
+            { id: '6', name: 'Node.js', category: '专业技能', proficiency: 3, description: '使用 Node.js 和 Express 构建 API...', examples: [], favorite: false, relatedSkills: [] },
+            { id: '7', name: 'Python', category: '专业技能', proficiency: 4, description: '熟练使用Python进行数据分析...', examples: [], favorite: false, relatedSkills: [] },
+            { id: '8', name: 'SQL数据库', category: '专业技能', proficiency: 4, description: '熟悉MySQL, PostgreSQL...', examples: [], favorite: false, relatedSkills: [] },
+            { id: '9', name: 'D3.js 可视化', category: '专业技能', proficiency: 3, description: '使用D3.js创建交互式图表...', examples: [], favorite: false, relatedSkills: [] },
+            { id: '10', name: '团队协作', category: '软技能', proficiency: 4, description: '良好融入团队并积极贡献...', examples: [], favorite: false, relatedSkills: [] },
+            { id: '11', name: '演讲与演示', category: '软技能', proficiency: 3, description: '清晰自信地进行技术演示...', examples: [], favorite: false, relatedSkills: [] },
+            { id: '12', name: 'Vue.js', category: '专业技能', proficiency: 2, description: '了解 Vue.js 的基本概念和用法。', examples: [], favorite: false, relatedSkills: [] },
+            { id: '13', name: 'Git 版本控制', category: '工具软件', proficiency: 4, description: '熟练使用 Git 进行版本控制和团队协作。', examples: [], favorite: false, relatedSkills: [] },
+            { id: '14', name: 'Docker 容器化', category: '工具软件', proficiency: 2, description: '了解 Docker 容器的基本操作。', examples: [], favorite: false, relatedSkills: [] },
+        ];
+        let skills = [...mockSkills]; 
+
+        // --- 页面模板 (pages/*.html) ---
+        const templates = {
+            home: `
+                <div class="animate-fadeIn">
+                    <h1 class="text-3xl font-bold text-gray-800 mb-6">我的能力仪表盘</h1>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8" id="skillCardContainer">
+                        <!-- 技能卡片将在此渲染 -->
+                    </div>
+                </div>
+            `,
+            form: `
+                <div class="animate-fadeIn">
+                    <h1 id="formTitle" class="text-3xl font-bold text-gray-800 mb-6">添加新能力</h1>
+                    <form id="skillForm" class="bg-white p-8 rounded-xl shadow-lg space-y-6">
+                        <div>
+                            <label for="skillName" class="block text-sm font-medium text-gray-700 mb-1">能力名称</label>
+                            <input type="text" id="skillName" name="skillName" required class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow">
+                        </div>
+                        <div>
+                            <label for="skillCategory" class="block text-sm font-medium text-gray-700 mb-1">分类</label>
+                            <select id="skillCategory" name="skillCategory" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow">
+                                <option value="专业技能">专业技能</option>
+                                <option value="软技能">软技能</option>
+                                <option value="语言能力">语言能力</option>
+                                <option value="工具软件">工具软件</option>
+                                <option value="其他">其他</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">熟练程度 (1-5 星)</label>
+                            <div id="skillProficiency" class="star-rating flex space-x-1 text-2xl">
+                                <i class="fas fa-star" data-value="1"></i>
+                                <i class="fas fa-star" data-value="2"></i>
+                                <i class="fas fa-star" data-value="3"></i>
+                                <i class="fas fa-star" data-value="4"></i>
+                                <i class="fas fa-star" data-value="5"></i>
+                            </div>
+                            <input type="hidden" id="skillProficiencyValue" name="skillProficiencyValue" value="0">
+                        </div>
+                        <div>
+                            <label for="skillDescription" class="block text-sm font-medium text-gray-700 mb-1">详细描述 (可选)</label>
+                            <textarea id="skillDescription" name="skillDescription" rows="4" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-shadow"></textarea>
+                        </div>
+                        <div id="examplesContainer">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">相关案例/作品</label>
+                            <!-- 案例将在此添加 -->
+                        </div>
+                        <button type="button" id="addExampleButton" class="text-sm text-blue-600 hover:text-blue-800 font-medium py-2 px-4 rounded-lg border border-blue-600 hover:bg-blue-50 transition-colors flex items-center">
+                            <i class="fas fa-plus mr-2"></i> 添加案例/作品
+                        </button>
+                        <!-- 关联技能部分在星云图模式下可以简化或移除，因为不再显示连线 -->
+                        <!-- 
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">关联技能 (可选)</label>
+                            <div id="relatedSkillsContainer" class="space-y-1 max-h-32 overflow-y-auto border p-2 rounded-md">
+                            </div>
+                        </div>
+                        -->
+                        <div class="flex items-center">
+                            <input type="checkbox" id="skillFavorite" name="skillFavorite" class="h-5 w-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500 mr-2">
+                            <label for="skillFavorite" class="text-sm font-medium text-gray-700">标记为核心能力 (收藏)</label>
+                        </div>
+                        <div class="flex justify-end space-x-3 pt-4">
+                            <button type="button" id="cancelFormButton" class="px-6 py-2.5 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 transition-colors">取消</button>
+                            <button type="submit" class="px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">保存能力</button>
+                        </div>
+                    </form>
+                </div>
+            `,
+            visualizations: `
+                <div class="animate-fadeIn h-full flex flex-col">
+                     <div class="flex justify-between items-center mb-4">
+                        <div>
+                            <h1 class="text-3xl font-bold text-gray-800">能力星云图</h1>
+                            <p class="text-gray-600 text-sm">宏观展示您的所有技能。点击节点查看详情，拖拽节点进行探索。</p>
+                        </div>
+                        <button id="resetZoomButton" class="text-sm bg-gray-200 hover:bg-gray-300 text-gray-700 py-1.5 px-3 rounded-lg transition-colors" title="重置视图">
+                            <i class="fas fa-search-location mr-1"></i> 重置视图
+                        </button>
+                    </div>
+                    <div id="forceGraphContainer" class="flex-grow bg-white p-1 rounded-xl shadow-lg w-full h-full min-h-[500px] overflow-hidden">
+                        <!-- D3 星云图将在此渲染 -->
+                    </div>
+                </div>
+            `,
+            settings: `
+                <div class="animate-fadeIn">
+                    <h1 class="text-3xl font-bold text-gray-800 mb-6">应用设置</h1>
+                    <div class="bg-white p-8 rounded-xl shadow-lg space-y-6">
+                        <div>
+                            <h2 class="text-xl font-semibold text-gray-700 mb-3">外观</h2>
+                            <label class="flex items-center">
+                                <input type="checkbox" class="h-5 w-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500 mr-2">
+                                <span>启用暗黑模式 (开发中)</span>
+                            </label>
+                        </div>
+                        <div>
+                            <h2 class="text-xl font-semibold text-gray-700 mb-3">数据管理</h2>
+                            <button class="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-lg mr-2 transition-colors">导出数据</button>
+                            <button class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium py-2 px-4 rounded-lg transition-colors">导入数据</button>
+                        </div>
+                         <div>
+                            <h2 class="text-xl font-semibold text-gray-700 mb-3">关于</h2>
+                            <p class="text-gray-600">可视化我的能力项 App v1.6.0 (Nebula Prototype)</p> <!-- 版本号更新 -->
+                            <p class="text-sm text-gray-500">此应用旨在帮助您梳理、展示和管理个人能力体系。</p>
+                        </div>
+                    </div>
+                </div>
+            `
+        };
+
+        // --- 应用逻辑 (assets/scripts/main.js) ---
+        const appContent = document.getElementById('appContent');
+        const navLinks = document.querySelectorAll('.nav-link');
+        const loadingOverlay = document.getElementById('loadingOverlay');
+        const addressBarInput = document.getElementById('addressBarInput');
+        const pageTitleDisplay = document.getElementById('pageTitleDisplay');
+        const browserBackBtn = document.getElementById('browserBack'); 
+        const browserForwardBtn = document.getElementById('browserForward'); 
+        let historyStack = [];
+        let historyPointer = -1;
+
+        const skillModal = document.getElementById('skillModal');
+        const modalTitle = document.getElementById('modalTitle');
+        const modalBody = document.getElementById('modalBody');
+        const modalFooter = document.getElementById('modalFooter');
+        const closeModalButton = document.getElementById('closeModalButton');
+        const d3Tooltip = d3.select("#d3Tooltip");
+        
+        let svgForZoom, gForZoom, zoomInstance; 
+        let currentD3ZoomTransform = d3.zoomIdentity; 
+        let resizeObserver; 
+        let renderPage; 
+
+        function showLoading() {
+            loadingOverlay.classList.remove('opacity-0', 'pointer-events-none');
+        }
+
+        function hideLoading() {
+            loadingOverlay.classList.add('opacity-0', 'pointer-events-none');
+        }
+        
+        function updateBrowserNavigation() {
+            browserBackBtn.disabled = historyPointer <= 0;
+            browserForwardBtn.disabled = historyPointer >= historyStack.length - 1;
+        }
+
+        browserBackBtn.addEventListener('click', () => {
+            if (historyPointer > 0) {
+                historyPointer--;
+                const route = historyStack[historyPointer];
+                renderPage(route.substring(1), false); 
+            }
+        });
+
+        browserForwardBtn.addEventListener('click', () => {
+            if (historyPointer < historyStack.length - 1) {
+                historyPointer++;
+                const route = historyStack[historyPointer];
+                renderPage(route.substring(1), false);
+            }
+        });
+        
+        const baseRenderPage = (pageName, addToHistory = true) => {
+            showLoading();
+            if (resizeObserver) {
+                resizeObserver.disconnect();
+                console.log("ResizeObserver disconnected before rendering new page.");
+            }
+            appContent.innerHTML = ''; 
+
+            setTimeout(() => {
+                if (templates[pageName]) {
+                    appContent.innerHTML = templates[pageName]; 
+                    updateActiveLink(pageName);
+                    addressBarInput.value = `app://skills/${pageName}`;
+                    pageTitleDisplay.textContent = pageName.charAt(0).toUpperCase() + pageName.slice(1) + " - 能力可视化";
+                    
+                    if (addToHistory) {
+                        if (historyPointer < historyStack.length - 1) {
+                            historyStack = historyStack.slice(0, historyPointer + 1);
+                        }
+                        historyStack.push(`#${pageName}`);
+                        historyPointer = historyStack.length - 1;
+                    }
+                    updateBrowserNavigation();
+
+                    if (pageName === 'home') {
+                        renderSkillCards();
+                        initHomePageCharts(); 
+                    } else if (pageName === 'form') {
+                        initSkillForm();
+                        if (currentEditingSkillId) {
+                            loadSkillForEditing(currentEditingSkillId);
+                        }
+                    }
+                } else {
+                    appContent.innerHTML = '<p class="text-red-500">Error: Page not found.</p>';
+                }
+                hideLoading();
+            }, 50); 
+        };
+
+        renderPage = (pageName, addToHistory = true) => {
+            baseRenderPage(pageName, addToHistory); 
+
+            if (pageName === 'visualizations') {
+                setTimeout(() => { 
+                    initNebulaGraph(); 
+                    setupResizeObserverForGraph(); 
+                    const resetButton = document.getElementById('resetZoomButton');
+                    if(resetButton) {
+                        resetButton.removeEventListener('click', resetD3Zoom); 
+                        resetButton.addEventListener('click', resetD3Zoom);
+                    }
+                }, 150); // 增加延迟以确保DOM完全就绪
+            }
+        };
+
+
+        function updateActiveLink(pageName) {
+            navLinks.forEach(link => {
+                link.classList.toggle('active-nav-link', link.getAttribute('href') === `#${pageName}`);
+                link.classList.toggle('bg-slate-700', link.getAttribute('href') === `#${pageName}`);
+                link.classList.toggle('hover:bg-slate-700', link.getAttribute('href') !== `#${pageName}`);
+            });
+        }
+
+        navLinks.forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const pageName = e.currentTarget.getAttribute('href').substring(1);
+                currentEditingSkillId = null; 
+                renderPage(pageName);
+            });
+        });
+        
+        function renderSkillCards() {
+            const container = document.getElementById('skillCardContainer');
+            if (!container) return;
+            container.innerHTML = skills.map(skill => `
+                <div class="bg-white rounded-xl shadow-lg p-5 hover:shadow-xl transition-shadow duration-300 flex flex-col justify-between">
+                    <div>
+                        <div class="flex justify-between items-start mb-2">
+                            <h3 class="text-lg font-semibold text-gray-800">${skill.name}</h3>
+                            <button class="text-gray-400 hover:text-yellow-500 favorite-btn ${skill.favorite ? 'text-yellow-500' : ''}" data-id="${skill.id}" title="收藏">
+                                <i class="fas fa-star"></i>
+                            </button>
+                        </div>
+                        <span class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">${skill.category}</span>
+                        <div class="my-2 flex">
+                            ${[...Array(5)].map((_, i) => `<i class="fas fa-star ${i < skill.proficiency ? 'text-amber-500' : 'text-gray-300'}"></i>`).join('')}
+                        </div>
+                        <p class="text-sm text-gray-600 mt-1 mb-3 h-12 overflow-hidden text-ellipsis">${skill.description || '暂无详细描述。'}</p>
+                    </div>
+                    <div class="mt-auto flex space-x-2">
+                        <button class="view-details-btn text-sm bg-sky-500 hover:bg-sky-600 text-white py-1.5 px-3 rounded-lg transition-colors w-1/2" data-id="${skill.id}">详情</button>
+                        <button class="edit-skill-btn text-sm bg-gray-200 hover:bg-gray-300 text-gray-700 py-1.5 px-3 rounded-lg transition-colors w-1/4" data-id="${skill.id}"><i class="fas fa-edit"></i></button>
+                        <button class="delete-skill-btn text-sm bg-red-100 hover:bg-red-200 text-red-600 py-1.5 px-3 rounded-lg transition-colors w-1/4" data-id="${skill.id}"><i class="fas fa-trash"></i></button>
+                    </div>
+                </div>
+            `).join('');
+            addCardEventListeners();
+        }
+
+        function addCardEventListeners() {
+            document.querySelectorAll('.favorite-btn').forEach(btn => btn.addEventListener('click', (e) => toggleFavorite(e.currentTarget.dataset.id)));
+            document.querySelectorAll('.view-details-btn').forEach(btn => btn.addEventListener('click', (e) => showSkillDetails(e.currentTarget.dataset.id)));
+            document.querySelectorAll('.edit-skill-btn').forEach(btn => btn.addEventListener('click', (e) => { currentEditingSkillId = e.currentTarget.dataset.id; renderPage('form'); }));
+            document.querySelectorAll('.delete-skill-btn').forEach(btn => btn.addEventListener('click', (e) => deleteSkill(e.currentTarget.dataset.id)));
+        }
+        
+        function toggleFavorite(skillId) {
+            const skill = skills.find(s => s.id === skillId);
+            if (skill) {
+                skill.favorite = !skill.favorite;
+                renderSkillCards(); 
+                if (Chart.getChart("radarChart") || Chart.getChart("barChart")) initHomePageCharts();
+            }
+        }
+
+        function deleteSkill(skillId) {
+            modalTitle.textContent = "确认删除";
+            modalBody.innerHTML = `<p>您确定要删除这个能力项吗？此操作无法撤销。</p>`;
+            modalFooter.innerHTML = `
+                <button id="cancelDeleteButton" class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100">取消</button>
+                <button id="confirmDeleteButton" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">删除</button>
+            `;
+            openModal();
+
+            document.getElementById('confirmDeleteButton').onclick = () => {
+                skills = skills.filter(s => s.id !== skillId);
+                // No need to update relatedSkills if links are removed from nebula
+                closeModal();
+                if (document.getElementById('skillCardContainer')) { 
+                    renderSkillCards();
+                    if (Chart.getChart("radarChart") || Chart.getChart("barChart")) initHomePageCharts();
+                } else if (document.getElementById('forceGraphContainer') && window.location.hash === '#visualizations') { 
+                    initNebulaGraph(); 
+                } else { 
+                    renderPage('home');
+                }
+                showNotification('能力项已删除', 'success');
+            };
+            document.getElementById('cancelDeleteButton').onclick = closeModal;
+        }
+        
+        let radarChartInstance, barChartInstance; 
+        function initHomePageCharts() { 
+            const radarCtx = document.getElementById('radarChart')?.getContext('2d');
+            const barCtx = document.getElementById('barChart')?.getContext('2d');
+            
+            if (radarChartInstance) radarChartInstance.destroy();
+            if (barChartInstance) barChartInstance.destroy();
+
+            if (radarCtx) {
+                const favoritedSkills = skills.filter(s => s.favorite).slice(0, 7); 
+                radarChartInstance = new Chart(radarCtx, {
+                    type: 'radar',
+                    data: {
+                        labels: favoritedSkills.map(s => s.name.length > 15 ? s.name.substring(0,12)+'...' : s.name),
+                        datasets: [{
+                            label: '核心能力熟练度',
+                            data: favoritedSkills.map(s => s.proficiency),
+                            fill: true,
+                            backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                            borderColor: 'rgb(54, 162, 235)',
+                            pointBackgroundColor: 'rgb(54, 162, 235)',
+                            pointBorderColor: '#fff',
+                            pointHoverBackgroundColor: '#fff',
+                            pointHoverBorderColor: 'rgb(54, 162, 235)'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: { r: { beginAtZero: true, max: 5, ticks: { stepSize: 1 } } },
+                        plugins: { legend: { display: favoritedSkills.length > 0 } }
+                    }
+                });
+            }
+             if (barCtx) { 
+                const categories = [...new Set(skills.map(s => s.category))];
+                const categoryData = categories.map(cat => {
+                    return skills.filter(s => s.category === cat).length;
+                });
+                barChartInstance = new Chart(barCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: categories,
+                        datasets: [{
+                            label: '技能数量',
+                            data: categoryData,
+                            backgroundColor: [
+                                'rgba(255, 99, 132, 0.5)', 'rgba(54, 162, 235, 0.5)',
+                                'rgba(255, 206, 86, 0.5)', 'rgba(75, 192, 192, 0.5)',
+                                'rgba(153, 102, 255, 0.5)', 'rgba(255, 159, 64, 0.5)'
+                            ],
+                            borderColor: [
+                                'rgba(255, 99, 132, 1)', 'rgba(54, 162, 235, 1)',
+                                'rgba(255, 206, 86, 1)', 'rgba(75, 192, 192, 1)',
+                                'rgba(153, 102, 255, 1)', 'rgba(255, 159, 64, 1)'
+                            ],
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } },
+                        plugins: { legend: { display: false } }
+                    }
+                });
+            }
+        }
+
+        let exampleCount = 0;
+        function initSkillForm() {
+            const form = document.getElementById('skillForm');
+            const proficiencyStars = document.getElementById('skillProficiency');
+            const proficiencyValueInput = document.getElementById('skillProficiencyValue');
+            const addExampleButton = document.getElementById('addExampleButton');
+            // const relatedSkillsContainer = document.getElementById('relatedSkillsContainer'); // Not used in nebula form
+            exampleCount = 0; 
+
+            if (!form) return;
+
+            if (proficiencyStars) {
+                const stars = proficiencyStars.querySelectorAll('.fa-star');
+                stars.forEach(star => {
+                    star.addEventListener('click', () => {
+                        const value = star.dataset.value;
+                        proficiencyValueInput.value = value;
+                        stars.forEach(s => s.classList.toggle('selected', s.dataset.value <= value));
+                        stars.forEach(s => s.classList.toggle('text-amber-500', s.dataset.value <= value));
+                        stars.forEach(s => s.classList.toggle('text-gray-300', s.dataset.value > value));
+                    });
+                    star.addEventListener('mouseover', () => {
+                        const hoverValue = star.dataset.value;
+                        stars.forEach(s => {
+                           if (s.dataset.value <= hoverValue) s.classList.add('text-amber-400');
+                           if (s.dataset.value > hoverValue && !s.classList.contains('selected')) s.classList.remove('text-amber-400');
+                        });
+                    });
+                    star.addEventListener('mouseout', () => {
+                        const currentValue = proficiencyValueInput.value;
+                        stars.forEach(s => {
+                            s.classList.remove('text-amber-400');
+                            s.classList.toggle('selected', s.dataset.value <= currentValue);
+                            s.classList.toggle('text-amber-500', s.dataset.value <= currentValue);
+                            s.classList.toggle('text-gray-300', s.dataset.value > currentValue);
+                        });
+                    });
+                });
+            }
+            
+            if (addExampleButton) addExampleButton.addEventListener('click', addExampleField);
+
+            // Related skills checkboxes are removed for nebula style as links are not primary
+            // if (relatedSkillsContainer) { ... } 
+
+            form.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const formData = new FormData(form);
+                const skillData = {
+                    id: currentEditingSkillId || crypto.randomUUID(),
+                    name: formData.get('skillName'),
+                    category: formData.get('skillCategory'),
+                    proficiency: parseInt(formData.get('skillProficiencyValue')) || 0,
+                    description: formData.get('skillDescription'),
+                    favorite: formData.get('skillFavorite') === 'on',
+                    examples: [],
+                    relatedSkills: [] // Reset relatedSkills for nebula, or manage differently if needed
+                };
+
+                for (let i = 0; i < exampleCount; i++) {
+                    const type = formData.get(`exampleType_${i}`);
+                    const content = formData.get(`exampleContent_${i}`);
+                    const title = formData.get(`exampleTitle_${i}`);
+                    if (type && content) {
+                        skillData.examples.push({ type, content, title: title || content });
+                    }
+                }
+                
+                if (currentEditingSkillId) { 
+                    const index = skills.findIndex(s => s.id === currentEditingSkillId);
+                    if (index !== -1) skills[index] = skillData;
+                } else { 
+                    skills.push(skillData);
+                }
+                
+                currentEditingSkillId = null; 
+                renderPage('home'); 
+                showNotification(`能力 "${skillData.name}" 已保存!`, 'success');
+            });
+
+            const cancelFormButton = document.getElementById('cancelFormButton');
+            if(cancelFormButton) {
+                cancelFormButton.addEventListener('click', () => {
+                    currentEditingSkillId = null;
+                    renderPage('home');
+                });
+            }
+        }
+
+        function addExampleField(type = 'link', content = '', title = '') {
+            const examplesContainer = document.getElementById('examplesContainer');
+            if (!examplesContainer) return;
+
+            const exampleDiv = document.createElement('div');
+            exampleDiv.className = 'p-3 border border-gray-200 rounded-lg mt-2 space-y-2 relative';
+            exampleDiv.innerHTML = `
+                <button type="button" class="absolute top-1 right-1 text-red-400 hover:text-red-600 remove-example-btn">&times;</button>
+                <div>
+                    <label class="text-xs font-medium text-gray-600">类型</label>
+                    <select name="exampleType_${exampleCount}" class="w-full p-2 text-sm border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-500">
+                        <option value="link" ${type === 'link' ? 'selected' : ''}>网页链接</option>
+                        <option value="image" ${type === 'image' ? 'selected' : ''}>图片URL</option>
+                        <option value="file" ${type === 'file' ? 'selected' : ''}>文件附件 (占位)</option>
+                        <option value="text" ${type === 'text' ? 'selected' : ''}>文字描述</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="text-xs font-medium text-gray-600">标题/名称 (可选)</label>
+                    <input type="text" name="exampleTitle_${exampleCount}" value="${title}" placeholder="例如：项目报告.pdf" class="w-full p-2 text-sm border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="text-xs font-medium text-gray-600">内容/链接</label>
+                    <input type="text" name="exampleContent_${exampleCount}" value="${content}" placeholder="https://example.com or 详细描述" class="w-full p-2 text-sm border border-gray-300 rounded-md focus:ring-1 focus:ring-blue-500" required>
+                </div>
+            `;
+            examplesContainer.appendChild(exampleDiv);
+            exampleDiv.querySelector('.remove-example-btn').addEventListener('click', () => exampleDiv.remove());
+            exampleCount++;
+        }
+
+        function loadSkillForEditing(skillId) {
+            const skill = skills.find(s => s.id === skillId);
+            if (!skill) return;
+
+            document.getElementById('formTitle').textContent = '编辑能力项';
+            document.getElementById('skillName').value = skill.name;
+            document.getElementById('skillCategory').value = skill.category;
+            document.getElementById('skillDescription').value = skill.description || '';
+            document.getElementById('skillFavorite').checked = skill.favorite;
+            
+            const proficiencyValueInput = document.getElementById('skillProficiencyValue');
+            proficiencyValueInput.value = skill.proficiency;
+            const stars = document.getElementById('skillProficiency').querySelectorAll('.fa-star');
+            stars.forEach(s => {
+                s.classList.toggle('selected', s.dataset.value <= skill.proficiency);
+                s.classList.toggle('text-amber-500', s.dataset.value <= skill.proficiency);
+                s.classList.toggle('text-gray-300', s.dataset.value > skill.proficiency);
+            });
+
+            const examplesContainer = document.getElementById('examplesContainer');
+            const existingExampleFields = examplesContainer.querySelectorAll('div.border-gray-200');
+            existingExampleFields.forEach(field => field.remove());
+            exampleCount = 0; 
+
+            if (skill.examples && skill.examples.length > 0) {
+                skill.examples.forEach(ex => addExampleField(ex.type, ex.content, ex.title));
+            }
+            // No need to load relatedSkills checkboxes if they are removed from the form for nebula style
+        }
+
+        function openModal() {
+            skillModal.classList.remove('hidden');
+            setTimeout(() => { 
+                skillModal.classList.remove('opacity-0');
+                skillModal.querySelector('.modal-content').classList.remove('scale-95');
+            }, 10);
+        }
+
+        function closeModal() {
+            skillModal.classList.add('opacity-0');
+            skillModal.querySelector('.modal-content').classList.add('scale-95');
+            setTimeout(() => { 
+                skillModal.classList.add('hidden');
+                modalTitle.textContent = '';
+                modalBody.innerHTML = '';
+                modalFooter.innerHTML = '';
+            }, 250);
+        }
+        if(closeModalButton) closeModalButton.addEventListener('click', closeModal);
+        window.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !skillModal.classList.contains('hidden')) closeModal(); });
+        skillModal.addEventListener('click', (e) => { if (e.target === skillModal) closeModal(); });
+
+        function showSkillDetails(skillId) {
+            const skill = skills.find(s => s.id === skillId);
+            if (!skill) return;
+
+            modalTitle.textContent = skill.name;
+            let examplesHtml = '<p class="text-sm text-gray-500">暂无相关案例/作品。</p>';
+            if (skill.examples && skill.examples.length > 0) {
+                examplesHtml = skill.examples.map(ex => {
+                    let contentDisplay = '';
+                    switch(ex.type) {
+                        case 'link': contentDisplay = `<a href="${ex.content}" target="_blank" class="text-blue-600 hover:underline break-all">${ex.title || ex.content}</a>`; break;
+                        case 'image': contentDisplay = `<a href="${ex.content}" target="_blank" class="text-blue-600 hover:underline break-all">${ex.title || '查看图片'} <img src="${ex.content}" alt="${ex.title || '案例图片'}" class="max-w-xs max-h-32 my-1 rounded" onerror="this.style.display='none'; this.nextSibling.style.display='block';"> <span style="display:none;" class="text-red-500 text-xs">图片加载失败</span></a>`; break;
+                        case 'file': contentDisplay = `<span class="text-gray-700"><i class="fas fa-file-alt mr-1"></i> ${ex.title || ex.content} (文件)</span>`; break;
+                        default: contentDisplay = `<p class="text-gray-700 whitespace-pre-wrap">${ex.content}</p>`;
+                    }
+                    return `<div class="mb-2 pb-2 border-b border-gray-200 last:border-b-0">${ex.title && ex.type !== 'link' && ex.type !== 'image' ? `<h5 class="font-semibold text-sm">${ex.title}</h5>` : ''}${contentDisplay}</div>`;
+                }).join('');
+            }
+
+            modalBody.innerHTML = `
+                <div class="mb-3">
+                    <span class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full font-medium">${skill.category}</span>
+                    <span class="ml-2">${[...Array(5)].map((_, i) => `<i class="fas fa-star text-sm ${i < skill.proficiency ? 'text-amber-500' : 'text-gray-300'}"></i>`).join('')}</span>
+                    ${skill.favorite ? '<span class="ml-2 text-yellow-500" title="核心能力"><i class="fas fa-star"></i></span>' : ''}
+                </div>
+                <p class="text-gray-700 mb-4 whitespace-pre-wrap">${skill.description || '暂无详细描述。'}</p>
+                <h4 class="font-semibold text-gray-800 mb-2">相关案例/作品：</h4>
+                <div class="max-h-60 overflow-y-auto pr-2">${examplesHtml}</div>
+            `;
+            modalFooter.innerHTML = `
+                <button id="closeDetailModalButton" class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100">关闭</button>
+                <button id="editDetailModalButton" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">编辑</button>
+            `;
+            openModal();
+
+            document.getElementById('closeDetailModalButton').onclick = closeModal;
+            document.getElementById('editDetailModalButton').onclick = () => { closeModal(); currentEditingSkillId = skillId; renderPage('form'); };
+        }
+
+        function showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            notification.className = `fixed bottom-5 right-5 text-white px-6 py-3 rounded-lg shadow-xl text-sm ${type === 'success' ? 'bg-green-500' : type === 'error' ? 'bg-red-500' : 'bg-blue-500'} transform translate-y-20 opacity-0 transition-all duration-300 ease-out`;
+            notification.textContent = message;
+            document.body.appendChild(notification);
+            setTimeout(() => notification.classList.remove('translate-y-20', 'opacity-0'), 10);
+            setTimeout(() => { notification.classList.add('opacity-0'); setTimeout(() => notification.remove(), 300); }, 3000);
+        }
+        
+        // --- D3 能力星云图 (可视化总览页面) ---
+        function initNebulaGraph() {
+            console.log("Initializing Nebula Graph");
+            const container = document.getElementById('forceGraphContainer');
+            if (!container) {
+                console.error("forceGraphContainer not found!");
+                return;
+            }
+            container.innerHTML = ''; 
+
+            const width = container.clientWidth;
+            const height = container.clientHeight < 500 ? 500 : container.clientHeight; 
+
+            zoomInstance = d3.zoom()
+                .scaleExtent([0.2, 5]) // 调整缩放范围
+                .on("zoom", (event) => {
+                    currentD3ZoomTransform = event.transform; 
+                    if(gForZoom) gForZoom.attr("transform", event.transform);
+                });
+
+            svgForZoom = d3.select(container).append("svg") 
+                .attr("width", width)
+                .attr("height", height)
+                .attr("viewBox", [-width / 2, -height / 2, width, height]) 
+                .style("max-width", "100%")
+                .style("height", "auto")
+                .attr("shape-rendering", "geometricPrecision") 
+                .call(zoomInstance) 
+                .on("dblclick.zoom", null); 
+
+
+            gForZoom = svgForZoom.append("g"); 
+
+            const nodes = JSON.parse(JSON.stringify(skills)); 
+            // const links = []; // 明确移除连线
+
+            if (nodes.length === 0) {
+                gForZoom.append("text") 
+                   .attr("x", 0)
+                   .attr("y", 0)
+                   .attr("text-anchor", "middle")
+                   .style("font-size", "16px")
+                   .style("fill", "#888")
+                   .text("暂无能力项数据，请先添加能力。");
+                return;
+            }
+            
+            const simulation = d3.forceSimulation(nodes)
+                // .force("link", null) // 明确移除 link force
+                .force("charge", d3.forceManyBody().strength(-50)) // 调整排斥力以获得星云效果
+                .force("center", d3.forceCenter(0,0)) 
+                .force("x", d3.forceX().strength(0.03)) // 较弱的X轴向心力
+                .force("y", d3.forceY().strength(0.03)) // 较弱的Y轴向心力
+                .force("collision", d3.forceCollide().radius(d => (d.proficiency || 1) * 4 + 20)); // 增加碰撞半径以容纳文本
+
+            const nodeBaseRadius = 4; 
+            const nodeScale = 3.5;  
+
+            const nodeElements = gForZoom.append("g") 
+                .attr("class", "nodes")
+                .selectAll("g") 
+                .data(nodes)
+                .join("g") 
+                .call(drag(simulation)); 
+
+            nodeElements.append("circle")
+                .attr("r", d => (d.proficiency || 1) * nodeScale + nodeBaseRadius)
+                .attr("fill", d => d.favorite ? "gold" : (d.category === '专业技能' ? '#3b82f6' : d.category === '软技能' ? '#10b981' : d.category === '工具软件' ? '#f59e0b' : '#8b5cf6'))
+                .on("mouseover", function(event, d) {
+                    d3.select(this).transition().duration(150).attr("r", (d.proficiency || 1) * nodeScale + nodeBaseRadius + 4); 
+                    d3Tooltip.transition().duration(200).style("opacity", .95);
+                    d3Tooltip.html(`<h4>${d.name}</h4><p><strong>分类:</strong> ${d.category}<br><strong>熟练度:</strong> ${d.proficiency} 星</p><p style="margin-top:4px;">${d.description.substring(0,100) + (d.description.length > 100 ? '...' : '')}</p>`)
+                        .style("left", (event.pageX + 15) + "px")
+                        .style("top", (event.pageY - 28) + "px");
+                })
+                .on("mouseout", function(event, d) {
+                    d3.select(this).transition().duration(150).attr("r", (d.proficiency || 1) * nodeScale + nodeBaseRadius);
+                    d3Tooltip.transition().duration(500).style("opacity", 0);
+                })
+                .on("click", function(event, d) { 
+                    event.stopPropagation(); 
+                    showSkillDetails(d.id); 
+                });
+            
+            const labelFontSize = 10; 
+            nodeElements.append("text")
+                .text(d => d.name.length > 12 ? d.name.substring(0,11)+"…" : d.name)
+                .attr("dy", "0.35em")
+                .style("font-size", `${labelFontSize}px`)
+                .attr("class", "nodes text");
+
+            simulation.on("tick", () => {
+                nodeElements
+                    .attr("transform", d => `translate(${d.x},${d.y})`);
+            }).on("end", () => {
+                console.log("Nebula simulation ended.");
+                if (svgForZoom && currentD3ZoomTransform && zoomInstance) {
+                     svgForZoom.call(zoomInstance.transform, currentD3ZoomTransform);
+                }
+            });
+            
+            function drag(simulation) {
+                function dragstarted(event, d) {
+                    if (!event.active) simulation.alphaTarget(0.3).restart();
+                    d.fx = d.x;
+                    d.fy = d.y;
+                    d3.select(this).select("circle").style("cursor", "grabbing");
+                }
+                function dragged(event, d) {
+                    d.fx = event.x;
+                    d.fy = event.y;
+                }
+                function dragended(event, d) {
+                    if (!event.active) simulation.alphaTarget(0);
+                    // d.fx = null; // 取消注释以使节点在拖拽结束后不固定
+                    // d.fy = null;
+                    d3.select(this).select("circle").style("cursor", "grab");
+                }
+                return d3.drag()
+                    .on("start", dragstarted)
+                    .on("drag", dragged)
+                    .on("end", dragended);
+            }
+
+            // 保存初始simulation以供重置使用
+            window.nebulaSimulation = simulation;
+        }
+        
+        function resetD3Zoom() {
+            if (!svgForZoom || !zoomInstance || !window.nebulaSimulation) return;
+            
+            // 重置缩放
+            svgForZoom
+                .transition()
+                .duration(750)
+                .call(zoomInstance.transform, d3.zoomIdentity);
+            
+            // 重置所有节点的固定位置
+            skills.forEach(node => {
+                node.fx = null;
+                node.fy = null;
+                node.x = 0;
+                node.y = 0;
+            });
+            
+            // 重新启动模拟
+            window.nebulaSimulation
+                .alpha(1)
+                .restart();
+            
+            // 重置当前变换
+            currentD3ZoomTransform = d3.zoomIdentity;
+        }
+
+        // --- 初始页面加载 & ResizeObserver 逻辑 ---
+        const initialPage = window.location.hash ? window.location.hash.substring(1) : 'home';
+        
+        function setupResizeObserverForGraph() {
+            const graphContainer = document.getElementById('forceGraphContainer');
+            if (graphContainer && typeof ResizeObserver !== 'undefined') {
+                 if (resizeObserver) resizeObserver.disconnect(); 
+                resizeObserver = new ResizeObserver(entries => {
+                    if (window.location.hash === '#visualizations' && graphContainer.offsetParent !== null) { 
+                        console.log("ResizeObserver triggered redraw for Nebula graph.");
+                        setTimeout(() => {
+                            if (window.location.hash === '#visualizations') { 
+                                initNebulaGraph(); // 调用新的星云图初始化函数
+                            }
+                        }, 250); 
+                    }
+                });
+                resizeObserver.observe(graphContainer);
+                console.log("ResizeObserver setup for Nebula graph.");
+            }
+        }
+        
+        renderPage(initialPage); 
+
+        if (historyStack.length === 0) { 
+            historyStack.push(`#${initialPage}`);
+            historyPointer = 0;
+            updateBrowserNavigation();
+        }
+
+        window.addEventListener('popstate', (event) => {
+            const pageName = window.location.hash ? window.location.hash.substring(1) : 'home';
+            const historyIndex = historyStack.lastIndexOf(`#${pageName}`);
+            if (historyIndex !== -1) {
+                historyPointer = historyIndex;
+            } else {
+                historyStack.push(`#${pageName}`);
+                historyPointer = historyStack.length - 1;
+            }
+            renderPage(pageName, false); 
+        });
+
+    </script>
+</body>
+</html>
