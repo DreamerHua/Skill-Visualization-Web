@@ -276,7 +276,7 @@
         document.getElementById('userIdDisplay').textContent = userId.substring(0, 12) + '...';
 
         // --- 模拟数据 (utils/data.js) ---
-        const mockSkills = [ // Using a slightly larger dataset for nebula view
+        let skills = DataManager.getData() || [ // 使用 DataManager 获取数据
             { id: '1', name: 'JavaScript (ES6+)', category: '专业技能', proficiency: 5, description: '精通 JavaScript 现代特性...', examples: [], favorite: true, relatedSkills: [] },
             { id: '2', name: 'React.js', category: '专业技能', proficiency: 4, description: '熟练使用 React 进行组件化开发...', examples: [], favorite: false, relatedSkills: [] },
             { id: '3', name: 'Tailwind CSS', category: '专业技能', proficiency: 4, description: '高效使用 Tailwind CSS...', examples: [], favorite: true, relatedSkills: [] },
@@ -291,8 +291,7 @@
             { id: '12', name: 'Vue.js', category: '专业技能', proficiency: 2, description: '了解 Vue.js 的基本概念和用法。', examples: [], favorite: false, relatedSkills: [] },
             { id: '13', name: 'Git 版本控制', category: '工具软件', proficiency: 4, description: '熟练使用 Git 进行版本控制和团队协作。', examples: [], favorite: false, relatedSkills: [] },
             { id: '14', name: 'Docker 容器化', category: '工具软件', proficiency: 2, description: '了解 Docker 容器的基本操作。', examples: [], favorite: false, relatedSkills: [] },
-        ];
-        let skills = [...mockSkills]; 
+        ]; 
 
         // --- 页面模板 (pages/*.html) ---
         const templates = {
@@ -570,8 +569,11 @@
             const skill = skills.find(s => s.id === skillId);
             if (skill) {
                 skill.favorite = !skill.favorite;
-                renderSkillCards(); 
-                if (Chart.getChart("radarChart") || Chart.getChart("barChart")) initHomePageCharts();
+                if (DataManager.updateSkill(skillId, { favorite: skill.favorite })) {
+                    skills = DataManager.getData(); // 重新获取最新数据
+                    renderSkillCards(); 
+                    if (Chart.getChart("radarChart") || Chart.getChart("barChart")) initHomePageCharts();
+                }
             }
         }
 
@@ -585,18 +587,21 @@
             openModal();
 
             document.getElementById('confirmDeleteButton').onclick = () => {
-                skills = skills.filter(s => s.id !== skillId);
-                // No need to update relatedSkills if links are removed from nebula
-                closeModal();
-                if (document.getElementById('skillCardContainer')) { 
-                    renderSkillCards();
-                    if (Chart.getChart("radarChart") || Chart.getChart("barChart")) initHomePageCharts();
-                } else if (document.getElementById('forceGraphContainer') && window.location.hash === '#visualizations') { 
-                    initNebulaGraph(); 
-                } else { 
-                    renderPage('home');
+                if (DataManager.deleteSkill(skillId)) {
+                    skills = DataManager.getData(); // 重新获取最新数据
+                    closeModal();
+                    if (document.getElementById('skillCardContainer')) { 
+                        renderSkillCards();
+                        if (Chart.getChart("radarChart") || Chart.getChart("barChart")) initHomePageCharts();
+                    } else if (document.getElementById('forceGraphContainer') && window.location.hash === '#visualizations') { 
+                        initNebulaGraph(); 
+                    } else { 
+                        renderPage('home');
+                    }
+                    showNotification('能力项已删除', 'success');
+                } else {
+                    showNotification('删除失败，请重试', 'error');
                 }
-                showNotification('能力项已删除', 'success');
             };
             document.getElementById('cancelDeleteButton').onclick = closeModal;
         }
@@ -726,7 +731,7 @@
                     description: formData.get('skillDescription'),
                     favorite: formData.get('skillFavorite') === 'on',
                     examples: [],
-                    relatedSkills: [] // Reset relatedSkills for nebula, or manage differently if needed
+                    relatedSkills: []
                 };
 
                 for (let i = 0; i < exampleCount; i++) {
@@ -738,16 +743,21 @@
                     }
                 }
                 
+                let success = false;
                 if (currentEditingSkillId) { 
-                    const index = skills.findIndex(s => s.id === currentEditingSkillId);
-                    if (index !== -1) skills[index] = skillData;
+                    success = DataManager.updateSkill(currentEditingSkillId, skillData);
                 } else { 
-                    skills.push(skillData);
+                    success = DataManager.addSkill(skillData);
                 }
                 
-                currentEditingSkillId = null; 
-                renderPage('home'); 
-                showNotification(`能力 "${skillData.name}" 已保存!`, 'success');
+                if (success) {
+                    skills = DataManager.getData(); // 重新获取最新数据
+                    currentEditingSkillId = null; 
+                    renderPage('home'); 
+                    showNotification(`能力 "${skillData.name}" 已保存!`, 'success');
+                } else {
+                    showNotification('保存失败，请重试', 'error');
+                }
             });
 
             const cancelFormButton = document.getElementById('cancelFormButton');
@@ -1086,6 +1096,91 @@
             renderPage(pageName, false); 
         });
 
+    </script>
+
+    <!-- 数据持久化相关的 JavaScript 代码 -->
+    <script>
+    // 数据持久化管理器
+    const DataManager = {
+        // 存储键名
+        STORAGE_KEY: 'skillsData',
+        
+        // 初始化数据
+        initialize() {
+            if (!this.getData()) {
+                this.saveData([]);
+            }
+        },
+        
+        // 获取所有技能数据
+        getData() {
+            try {
+                const data = localStorage.getItem(this.STORAGE_KEY);
+                return data ? JSON.parse(data) : null;
+            } catch (error) {
+                console.error('读取数据失败:', error);
+                return null;
+            }
+        },
+        
+        // 保存数据
+        saveData(data) {
+            try {
+                localStorage.setItem(this.STORAGE_KEY, JSON.stringify(data));
+                return true;
+            } catch (error) {
+                console.error('保存数据失败:', error);
+                return false;
+            }
+        },
+        
+        // 添加新技能
+        addSkill(skill) {
+            const skills = this.getData() || [];
+            skills.push({
+                ...skill,
+                id: Date.now().toString(), // 生成唯一ID
+                createdAt: new Date().toISOString()
+            });
+            return this.saveData(skills);
+        },
+        
+        // 更新技能
+        updateSkill(skillId, updatedData) {
+            const skills = this.getData() || [];
+            const index = skills.findIndex(s => s.id === skillId);
+            if (index !== -1) {
+                skills[index] = { ...skills[index], ...updatedData };
+                return this.saveData(skills);
+            }
+            return false;
+        },
+        
+        // 删除技能
+        deleteSkill(skillId) {
+            const skills = this.getData() || [];
+            const filteredSkills = skills.filter(s => s.id !== skillId);
+            return this.saveData(filteredSkills);
+        }
+    };
+
+    // 页面加载时初始化数据管理器
+    document.addEventListener('DOMContentLoaded', () => {
+        DataManager.initialize();
+        
+        // 生成随机用户ID并显示（如果不存在）
+        const userId = localStorage.getItem('userId') || 
+            Array.from(crypto.getRandomValues(new Uint8Array(8)))
+                .map(b => b.toString(16).padStart(2, '0'))
+                .join('');
+        localStorage.setItem('userId', userId);
+        document.getElementById('userIdDisplay').textContent = userId;
+    });
+
+    // 添加自动保存功能
+    window.addEventListener('beforeunload', () => {
+        // 在这里可以添加额外的数据同步逻辑
+    });
     </script>
 </body>
 </html>
