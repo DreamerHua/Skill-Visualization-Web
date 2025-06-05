@@ -382,9 +382,21 @@
                             <h1 class="text-3xl font-bold text-gray-800">能力星云图</h1>
                             <p class="text-gray-600 text-sm">宏观展示您的所有技能。点击节点查看详情，拖拽节点进行探索。</p>
                         </div>
-                        <button id="resetZoomButton" class="text-sm bg-gray-200 hover:bg-gray-300 text-gray-700 py-1.5 px-3 rounded-lg transition-colors" title="重置视图">
-                            <i class="fas fa-search-location mr-1"></i> 重置视图
-                        </button>
+                        <div class="flex items-center gap-2">
+                            <div id="nebulaViewDropdown" class="relative">
+                                <button id="currentNebulaViewBtn" class="px-3 py-1.5 bg-gray-100 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-200 transition-colors flex items-center">
+                                    <span id="currentNebulaViewName">默认视图</span>
+                                    <i class="fas fa-chevron-down ml-2 text-xs"></i>
+                                </button>
+                                <div id="nebulaViewList" class="absolute right-0 mt-2 w-56 bg-white border border-gray-200 rounded-lg shadow-lg z-50 hidden"></div>
+                            </div>
+                            <button id="saveNebulaViewBtn" class="text-sm bg-blue-100 hover:bg-blue-200 text-blue-700 py-1.5 px-3 rounded-lg transition-colors" title="保存为新视图">
+                                <i class="fas fa-save mr-1"></i>保存视图
+                            </button>
+                            <button id="resetZoomButton" class="text-sm bg-gray-200 hover:bg-gray-300 text-gray-700 py-1.5 px-3 rounded-lg transition-colors" title="重置视图">
+                                <i class="fas fa-search-location mr-1"></i> 重置视图
+                            </button>
+                        </div>
                     </div>
                     <div id="forceGraphContainer" class="flex-grow bg-white p-1 rounded-xl shadow-lg w-full h-full min-h-[500px] overflow-hidden">
                         <!-- D3 星云图将在此渲染 -->
@@ -514,18 +526,23 @@
         };
 
         renderPage = (pageName, addToHistory = true) => {
-            baseRenderPage(pageName, addToHistory); 
+            baseRenderPage(pageName, addToHistory);
 
             if (pageName === 'visualizations') {
-                setTimeout(() => { 
-                    initNebulaGraph(); 
-                    setupResizeObserverForGraph(); 
-                    const resetButton = document.getElementById('resetZoomButton');
-                    if(resetButton) {
-                        resetButton.removeEventListener('click', resetD3Zoom); 
-                        resetButton.addEventListener('click', resetD3Zoom);
+                // 每次都切换到默认视图
+                currentNebulaViewId = null;
+                nebulaLastPositions = {};
+                // 先渲染星云图
+                initNebulaGraph();
+                // 再初始化多视图UI
+                setTimeout(setupNebulaViewUI, 200);
+                // 强制清空节点fx/fy，确保星云图为默认布局
+                setTimeout(() => {
+                    if (window.nebulaSimulation) {
+                        window.nebulaSimulation.nodes().forEach(n => { n.fx = null; n.fy = null; });
+                        window.nebulaSimulation.alpha(1).restart();
                     }
-                }, 150); // 增加延迟以确保DOM完全就绪
+                }, 300);
             }
         };
 
@@ -1027,7 +1044,7 @@
             const height = container.clientHeight < 500 ? 500 : container.clientHeight; 
 
             zoomInstance = d3.zoom()
-                .scaleExtent([0.2, 5]) // 调整缩放范围
+                .scaleExtent([0.2, 5])
                 .on("zoom", (event) => {
                     currentD3ZoomTransform = event.transform; 
                     if(gForZoom) gForZoom.attr("transform", event.transform);
@@ -1043,11 +1060,11 @@
                 .call(zoomInstance) 
                 .on("dblclick.zoom", null); 
 
-
             gForZoom = svgForZoom.append("g"); 
 
-            const nodes = JSON.parse(JSON.stringify(skills)); 
-            // const links = []; // 明确移除连线
+            // 每次都同步最新的skills数据
+            skills = DataManager.getData() || [];
+            const nodes = JSON.parse(JSON.stringify(skills));
 
             if (nodes.length === 0) {
                 gForZoom.append("text") 
@@ -1061,12 +1078,22 @@
             }
             
             const simulation = d3.forceSimulation(nodes)
-                // .force("link", null) // 明确移除 link force
-                .force("charge", d3.forceManyBody().strength(-50)) // 调整排斥力以获得星云效果
+                .force("charge", d3.forceManyBody().strength(-50))
                 .force("center", d3.forceCenter(0,0)) 
-                .force("x", d3.forceX().strength(0.03)) // 较弱的X轴向心力
-                .force("y", d3.forceY().strength(0.03)) // 较弱的Y轴向心力
-                .force("collision", d3.forceCollide().radius(d => (d.proficiency || 1) * 4 + 20)); // 增加碰撞半径以容纳文本
+                .force("x", d3.forceX().strength(0.03))
+                .force("y", d3.forceY().strength(0.03))
+                .force("collision", d3.forceCollide().radius(d => (d.proficiency || 1) * 4 + 20));
+
+            // 保存初始simulation以供重置使用
+            window.nebulaSimulation = simulation;
+
+            // 如果是默认视图，确保所有节点都是自由布局
+            if (!currentNebulaViewId) {
+                nodes.forEach(n => {
+                    n.fx = null;
+                    n.fy = null;
+                });
+            }
 
             const nodeBaseRadius = 4; 
             const nodeScale = 3.5;  
@@ -1156,9 +1183,6 @@
                     .on("drag", dragged)
                     .on("end", dragended);
             }
-
-            // 保存初始simulation以供重置使用
-            window.nebulaSimulation = simulation;
         }
         
         function resetD3Zoom() {
@@ -1336,7 +1360,8 @@
             const data = {
                 skills: DataManager.getData() || [],
                 tags: DataManager.getTags() || [],
-                tagColors: DataManager.getTagColors() || {}
+                tagColors: DataManager.getTagColors() || {},
+                nebulaViews: NebulaViewManager.getViews() || []
             };
             const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
             const url = URL.createObjectURL(blob);
@@ -1371,6 +1396,7 @@
                         DataManager.saveData(json.skills);
                         if (json.tags) DataManager.saveTags(json.tags);
                         if (json.tagColors) DataManager.saveTagColors(json.tagColors);
+                        if (json.nebulaViews) NebulaViewManager.saveViews(json.nebulaViews);
                         showNotification('导入成功，页面即将刷新', 'success');
                         setTimeout(() => location.reload(), 1200);
                     } catch (err) {
@@ -1396,6 +1422,285 @@
             if (importBtn) importBtn.onclick = importAllData;
         }
 
+        // --- Nebula多视图管理核心变量 ---
+        let currentNebulaViewId = null; // 当前激活视图id，null为默认视图
+        let nebulaHasUnsavedChange = false; // 当前布局是否有未保存变动
+        let nebulaLastPositions = {}; // 上次保存/切换时的节点位置快照
+
+        // --- 绑定星云图多视图相关按钮事件 ---
+        function bindNebulaViewButtons() {
+            // 保存视图按钮
+            const saveBtn = document.getElementById('saveNebulaViewBtn');
+            if (saveBtn) {
+                saveBtn.onclick = onSaveNebulaView;
+            }
+            // 下拉菜单按钮
+            const dropdownBtn = document.getElementById('currentNebulaViewBtn');
+            const viewList = document.getElementById('nebulaViewList');
+            if (dropdownBtn && viewList) {
+                dropdownBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    viewList.classList.toggle('hidden');
+                };
+                // 点击页面其他地方关闭下拉
+                document.addEventListener('click', function hideList(e) {
+                    if (!viewList.classList.contains('hidden')) {
+                        viewList.classList.add('hidden');
+                    }
+                }, { once: true });
+                // 防止点击下拉本身关闭
+                viewList.onclick = (e) => e.stopPropagation();
+            }
+        }
+
+        // --- 获取当前星云图节点布局 ---
+        function getCurrentNebulaPositions() {
+            if (!window.nebulaSimulation) return {};
+            const nodes = window.nebulaSimulation.nodes();
+            const pos = {};
+            nodes.forEach(n => {
+                pos[n.id] = { x: n.x, y: n.y };
+            });
+            return pos;
+        }
+
+        // --- 检查布局是否有变动 ---
+        function checkNebulaChanged() {
+            const now = getCurrentNebulaPositions();
+            const last = nebulaLastPositions || {};
+            const keys = Object.keys(now);
+            if (Object.keys(last).length !== keys.length) return true;
+            for (const k of keys) {
+                if (!last[k] || Math.abs(now[k].x - last[k].x) > 1 || Math.abs(now[k].y - last[k].y) > 1) return true;
+            }
+            return false;
+        }
+
+        // --- 渲染视图下拉菜单 ---
+        function renderNebulaViewList() {
+            const list = document.getElementById('nebulaViewList');
+            if (!list) return;
+            const views = NebulaViewManager.getViews();
+            let html = `
+                <div class="flex items-center justify-between px-4 py-2 bg-gray-50 cursor-pointer group" data-id="__default__">
+                    <span class="truncate max-w-[120px]">默认视图</span>
+                    <div class="flex gap-1 ml-2">
+                        <button class="text-xs text-gray-400 cursor-not-allowed" disabled>重命名</button>
+                        <button class="text-xs text-gray-400 cursor-not-allowed" disabled>删除</button>
+                    </div>
+                </div>
+            `;
+            if (views.length === 0) {
+                html += '<div class="px-4 py-2 text-gray-400">暂无自定义视图</div>';
+            } else {
+                html += views.map(v => `
+                    <div class="flex items-center justify-between px-4 py-2 hover:bg-gray-100 cursor-pointer group" data-id="${v.id}">
+                        <span class="truncate max-w-[120px]">${v.name}</span>
+                        <div class="flex gap-1 ml-2">
+                            <button class="text-xs text-blue-500 hover:underline rename-nebula-view-btn" data-id="${v.id}">重命名</button>
+                            <button class="text-xs text-red-500 hover:underline delete-nebula-view-btn" data-id="${v.id}">删除</button>
+                        </div>
+                    </div>
+                `).join('');
+            }
+            list.innerHTML = html;
+            // 切换视图
+            list.querySelectorAll('[data-id]').forEach(item => {
+                item.onclick = () => onSwitchNebulaView(item.dataset.id);
+            });
+            // 重命名
+            list.querySelectorAll('.rename-nebula-view-btn').forEach(btn => {
+                btn.onclick = (e) => {
+                    e.stopPropagation();
+                    const id = btn.dataset.id;
+                    const v = NebulaViewManager.getViewById(id);
+                    const newName = prompt('请输入新视图名称', v.name);
+                    if (newName && newName.trim()) {
+                        NebulaViewManager.renameView(id, newName.trim());
+                        renderNebulaViewList();
+                        renderNebulaViewName();
+                    }
+                };
+            });
+            // 删除
+            list.querySelectorAll('.delete-nebula-view-btn').forEach(btn => {
+                btn.onclick = (e) => {
+                    e.stopPropagation();
+                    const id = btn.dataset.id;
+                    if (confirm('确定要删除该视图吗？')) {
+                        NebulaViewManager.deleteView(id);
+                        if (currentNebulaViewId === id) {
+                            currentNebulaViewId = null;
+                            nebulaLastPositions = {};
+                        }
+                        renderNebulaViewList();
+                        renderNebulaViewName();
+                        if (window.initNebulaGraph) setTimeout(initNebulaGraph, 100);
+                    }
+                };
+            });
+        }
+
+        // --- 渲染当前视图名称 ---
+        function renderNebulaViewName() {
+            const nameSpan = document.getElementById('currentNebulaViewName');
+            if (!nameSpan) return;
+            if (!currentNebulaViewId || currentNebulaViewId === '__default__') {
+                nameSpan.textContent = '默认视图';
+            } else {
+                const v = NebulaViewManager.getViewById(currentNebulaViewId);
+                nameSpan.textContent = v ? v.name : '未知视图';
+            }
+        }
+
+        // --- 保存当前布局为新视图 ---
+        function onSaveNebulaView() {
+            const views = NebulaViewManager.getViews();
+            if (views.length >= 5) {
+                alert('最多只能保存5个自定义视图，请先删除不需要的视图。');
+                return;
+            }
+            const name = prompt('请输入新视图名称');
+            if (!name || !name.trim()) return;
+            const id = 'v_' + Date.now();
+            const positions = getCurrentNebulaPositions();
+            NebulaViewManager.addView({ id, name: name.trim(), positions, createdAt: new Date().toISOString() });
+            currentNebulaViewId = id;
+            nebulaLastPositions = positions;
+            nebulaHasUnsavedChange = false;
+            renderNebulaViewList();
+            renderNebulaViewName();
+            showNotification('视图已保存', 'success');
+        }
+
+        // --- 切换视图 ---
+        function onSwitchNebulaView(id) {
+            if ((currentNebulaViewId || '__default__') === id) return;
+            if (currentNebulaViewId && nebulaHasUnsavedChange && checkNebulaChanged()) {
+                if (!confirm('当前视图有未保存的更改，是否保存？')) {
+                    nebulaHasUnsavedChange = false;
+                } else {
+                    // 覆盖当前视图
+                    NebulaViewManager.updateView(currentNebulaViewId, { positions: getCurrentNebulaPositions() });
+                    nebulaLastPositions = getCurrentNebulaPositions();
+                    nebulaHasUnsavedChange = false;
+                    showNotification('当前视图已保存', 'success');
+                }
+            }
+            if (id === '__default__') {
+                currentNebulaViewId = null;
+                nebulaLastPositions = {};
+                if (window.initNebulaGraph) setTimeout(() => {
+                    initNebulaGraph();
+                    setTimeout(() => {
+                        if (window.nebulaSimulation) {
+                            window.nebulaSimulation.nodes().forEach(n => { n.fx = null; n.fy = null; });
+                            window.nebulaSimulation.alpha(1).restart();
+                        }
+                    }, 200);
+                }, 100);
+            } else {
+                currentNebulaViewId = id;
+                const v = NebulaViewManager.getViewById(id);
+                if (v && window.initNebulaGraph) {
+                    setTimeout(() => {
+                        initNebulaGraph(v.positions);
+                        setTimeout(() => applyNebulaViewPositions(v.positions), 200);
+                    }, 100);
+                }
+                nebulaLastPositions = v ? v.positions : {};
+            }
+            renderNebulaViewName();
+            renderNebulaViewList();
+        }
+
+        // --- 星云图初始化时应用视图布局 ---
+        function applyNebulaViewPositions(positions) {
+            if (!positions || !window.nebulaSimulation) return;
+            
+            const nodes = window.nebulaSimulation.nodes();
+            let hasChanges = false;
+            
+            nodes.forEach(n => {
+                if (positions[n.id]) {
+                    // 只有当位置发生显著变化时才更新
+                    if (Math.abs(n.x - positions[n.id].x) > 1 || Math.abs(n.y - positions[n.id].y) > 1) {
+                        n.x = positions[n.id].x;
+                        n.y = positions[n.id].y;
+                        n.fx = n.x;
+                        n.fy = n.y;
+                        hasChanges = true;
+                    }
+                } else {
+                    // 如果节点没有保存的位置，则释放它
+                    if (n.fx !== null || n.fy !== null) {
+                        n.fx = null;
+                        n.fy = null;
+                        hasChanges = true;
+                    }
+                }
+            });
+            
+            // 只有在有变化时才重启模拟
+            if (hasChanges) {
+                window.nebulaSimulation.alpha(1).restart();
+            }
+        }
+
+        // --- 拖动节点时标记变动 ---
+        function markNebulaChanged() {
+            nebulaHasUnsavedChange = true;
+        }
+
+        // --- 绑定保存按钮、下拉菜单 ---
+        function setupNebulaViewUI() {
+            bindNebulaViewButtons();
+            renderNebulaViewList();
+            renderNebulaViewName();
+        }
+
+        // --- 修改initNebulaGraph，支持传入positions ---
+        const oldInitNebulaGraph = window.initNebulaGraph;
+        window.initNebulaGraph = function(positions) {
+            // 每次都同步skills数据
+            skills = DataManager.getData() || [];
+            oldInitNebulaGraph && oldInitNebulaGraph();
+            if (positions && currentNebulaViewId) {
+                // 自定义视图：应用保存的节点位置
+                setTimeout(() => applyNebulaViewPositions(positions), 200);
+            } else {
+                // 默认视图：清空所有节点fx/fy，强制D3自动布局
+                setTimeout(() => {
+                    if (window.nebulaSimulation) {
+                        window.nebulaSimulation.nodes().forEach(n => { n.fx = null; n.fy = null; });
+                        window.nebulaSimulation.alpha(1).restart();
+                    }
+                }, 200);
+            }
+            // ...tick监听同原逻辑...
+        };
+
+        // --- 页面切换到visualizations时初始化 ---
+        const oldRenderPage = renderPage;
+        renderPage = function(pageName, addToHistory = true) {
+            oldRenderPage(pageName, addToHistory);
+            if (pageName === 'visualizations') {
+                // 每次都切换到默认视图
+                currentNebulaViewId = null;
+                nebulaLastPositions = {};
+                // 先渲染星云图
+                initNebulaGraph();
+                // 再初始化多视图UI
+                setTimeout(setupNebulaViewUI, 200);
+                // 强制清空节点fx/fy，确保星云图为默认布局
+                setTimeout(() => {
+                    if (window.nebulaSimulation) {
+                        window.nebulaSimulation.nodes().forEach(n => { n.fx = null; n.fy = null; });
+                        window.nebulaSimulation.alpha(1).restart();
+                    }
+                }, 300);
+            }
+        }
     </script>
 
     <!-- 数据持久化相关的 JavaScript 代码 -->
@@ -1558,6 +1863,50 @@
     window.addEventListener('beforeunload', () => {
         // 在这里可以添加额外的数据同步逻辑
     });
+    </script>
+
+    <!-- Nebula视图持久化管理 -->
+    <script>
+    // --- Nebula视图持久化管理 ---
+    const NebulaViewManager = {
+        STORAGE_KEY: 'nebulaViews',
+        getViews() {
+            try {
+                const data = localStorage.getItem(this.STORAGE_KEY);
+                return data ? JSON.parse(data) : [];
+            } catch (e) { return []; }
+        },
+        saveViews(views) {
+            localStorage.setItem(this.STORAGE_KEY, JSON.stringify(views || []));
+        },
+        addView(view) {
+            const views = this.getViews();
+            if (views.length >= 6) return false;
+            views.push(view);
+            this.saveViews(views);
+            return true;
+        },
+        updateView(id, newData) {
+            const views = this.getViews();
+            const idx = views.findIndex(v => v.id === id);
+            if (idx !== -1) {
+                views[idx] = { ...views[idx], ...newData };
+                this.saveViews(views);
+                return true;
+            }
+            return false;
+        },
+        deleteView(id) {
+            const views = this.getViews().filter(v => v.id !== id);
+            this.saveViews(views);
+        },
+        renameView(id, newName) {
+            return this.updateView(id, { name: newName });
+        },
+        getViewById(id) {
+            return this.getViews().find(v => v.id === id);
+        }
+    };
     </script>
 </body>
 </html>
