@@ -408,8 +408,8 @@
                         </div>
                         <div>
                             <h2 class="text-xl font-semibold text-gray-700 mb-3">数据管理</h2>
-                            <button class="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-lg mr-2 transition-colors">导出数据</button>
-                            <button class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium py-2 px-4 rounded-lg transition-colors">导入数据</button>
+                            <button id="exportDataBtn" class="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-lg mr-2 transition-colors">导出数据</button>
+                            <button id="importDataBtn" class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium py-2 px-4 rounded-lg transition-colors">导入数据</button>
                         </div>
                          <div>
                             <h2 class="text-xl font-semibold text-gray-700 mb-3">关于</h2>
@@ -1324,9 +1324,77 @@
         baseRenderPage = function(pageName, addToHistory = true) {
             oldBaseRenderPage(pageName, addToHistory);
             if (pageName === 'settings') {
-                setTimeout(renderTagManageList, 200);
+                setTimeout(() => {
+                    renderTagManageList();
+                    bindDataManageButtons();
+                }, 200);
             }
         };
+
+        // --- 数据导出 ---
+        function exportAllData() {
+            const data = {
+                skills: DataManager.getData() || [],
+                tags: DataManager.getTags() || [],
+                tagColors: DataManager.getTagColors() || {}
+            };
+            const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            const ts = new Date().toISOString().replace(/[-:T]/g, '').slice(0, 12);
+            a.href = url;
+            a.download = `skills-backup-${ts}.json`;
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(() => {
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }, 100);
+        }
+        // --- 数据导入 ---
+        function importAllData() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json,application/json';
+            input.onchange = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = function(evt) {
+                    try {
+                        const json = JSON.parse(evt.target.result);
+                        if (!json.skills || !Array.isArray(json.skills)) {
+                            showNotification('导入文件格式不正确', 'error');
+                            return;
+                        }
+                        if (!confirm('导入数据将全量覆盖本地所有数据，是否继续？')) return;
+                        DataManager.saveData(json.skills);
+                        if (json.tags) DataManager.saveTags(json.tags);
+                        if (json.tagColors) DataManager.saveTagColors(json.tagColors);
+                        showNotification('导入成功，页面即将刷新', 'success');
+                        setTimeout(() => location.reload(), 1200);
+                    } catch (err) {
+                        showNotification('导入失败，文件格式错误', 'error');
+                    }
+                };
+                reader.readAsText(file);
+            };
+            input.click();
+        }
+        // 绑定按钮事件
+        document.addEventListener('DOMContentLoaded', () => {
+            const exportBtn = document.getElementById('exportDataBtn');
+            const importBtn = document.getElementById('importDataBtn');
+            if (exportBtn) exportBtn.onclick = exportAllData;
+            if (importBtn) importBtn.onclick = importAllData;
+        });
+
+        function bindDataManageButtons() {
+            const exportBtn = document.getElementById('exportDataBtn');
+            const importBtn = document.getElementById('importDataBtn');
+            if (exportBtn) exportBtn.onclick = exportAllData;
+            if (importBtn) importBtn.onclick = importAllData;
+        }
 
     </script>
 
