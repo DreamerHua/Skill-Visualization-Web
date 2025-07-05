@@ -1,0 +1,364 @@
+{
+  "skills": [
+    {
+      "id": "1748962360448",
+      "name": "可视化想法原型",
+      "category": "软技能",
+      "proficiency": 2,
+      "description": "对工具有些朦胧的想法，借助Cursor/Gemini Canvas把想法可视化为原型设计",
+      "favorite": true,
+      "examples": [
+        {
+          "type": "link",
+          "content": "https://dreamerhua.github.io/Skill-Visualization-Web/",
+          "title": "能力可视化网页"
+        },
+        {
+          "type": "link",
+          "content": "file:///D:/AI%20Projects/2-%E8%87%AA%E6%88%91%E6%8F%90%E5%8D%87App/design/index.html",
+          "title": "自我提升App"
+        },
+        {
+          "type": "link",
+          "content": "file:///D:/AI%20Projects/3-%E6%8B%8D%E7%85%A7%E5%AD%A6%E8%8B%B1%E6%96%87%E5%8D%95%E8%AF%8DApp/design/index.html",
+          "title": "拍照学单词App"
+        }
+      ],
+      "relatedSkills": [],
+      "createdAt": "2025-06-03T14:52:40.448Z",
+      "input": "粗糙的软件想法",
+      "output": "网页/App原型",
+      "tags": [
+        "可视化"
+      ]
+    },
+    {
+      "id": "1749027428672",
+      "name": "构建信息系统",
+      "category": "软技能",
+      "proficiency": 3,
+      "description": "为专题内容创建信息系统，记录过程数据\n\n输入：网络资料、多种格式素材\n输出：符合认知顺序的文档整合",
+      "favorite": true,
+      "examples": [
+        {
+          "type": "link",
+          "content": "https://njsxtqpdpx.feishu.cn/wiki/Rq0zwlHBlicQj8kBLz4cq0yLnUc",
+          "title": "2025出国读博士"
+        },
+        {
+          "type": "link",
+          "content": "https://njsxtqpdpx.feishu.cn/wiki/GpbNwFdo4ieIe1kkIercuyyBndc",
+          "title": "PhD Journey"
+        },
+        {
+          "type": "link",
+          "content": "https://njsxtqpdpx.feishu.cn/wiki/FH2lwYfBciQl0tkUIgQcgRpWnSg",
+          "title": "人生系统"
+        }
+      ],
+      "relatedSkills": [],
+      "createdAt": "2025-06-04T08:57:08.672Z"
+    },
+    {
+      "id": "1749040563069",
+      "name": "信息规整",
+      "category": "软技能",
+      "proficiency": 5,
+      "description": "",
+      "favorite": false,
+      "examples": [
+        {
+          "type": "link",
+          "content": "https://docs.qq.com/sheet/DRGhNeFFjdHFKdEFJ?tab=000001",
+          "title": "博士申请学校、教授信息"
+        },
+        {
+          "type": "link",
+          "content": "https://njsxtqpdpx.feishu.cn/wiki/MCVSwbHb6iXzzokDJ2HclhK8nRf?table=tblFNtIOU2jYeXqR&view=vewj6oFmOi",
+          "title": "文献信息表"
+        },
+        {
+          "type": "link",
+          "content": "https://njsxtqpdpx.feishu.cn/wiki/HciCw3QbviC6yqkLwdVcbhKCnwg?sheet=8PbYgK&table=tblqukuXBxuNDBx7&view=vewoQPZwZc",
+          "title": "喜糖清单"
+        }
+      ],
+      "relatedSkills": [],
+      "createdAt": "2025-06-04T12:36:03.069Z",
+      "input": "同类别的散乱信息",
+      "output": "Excel、多维表格",
+      "tags": []
+    },
+    {
+      "id": "1749041490234",
+      "name": "视频剪辑",
+      "category": "软技能",
+      "proficiency": 2,
+      "description": "省时间要点：找到合适的模板",
+      "favorite": false,
+      "examples": [
+        {
+          "type": "link",
+          "content": "https://drive.google.com/file/d/17AWrL4atGpFnuskxx1zgp1ZwTt2UHKdv/view?usp=drive_link",
+          "title": "婚纱照滚动轮播视频"
+        },
+        {
+          "type": "link",
+          "content": "https://drive.google.com/file/d/1lddTfWYurUeBEAxO1fM5R6jB73BZeMx1/view?usp=drive_link",
+          "title": "婚礼开场视频"
+        }
+      ],
+      "relatedSkills": [],
+      "createdAt": "2025-06-04T12:51:30.234Z",
+      "tags": [
+        "可视化"
+      ],
+      "input": "散乱的图片、视频素材",
+      "output": "带叙事的精品视频"
+    },
+    {
+      "id": "1749041608877",
+      "name": "结构化数据/Excel可视化",
+      "category": "软技能",
+      "proficiency": 3,
+      "description": "借助Canva、美图设计室的批量排版功能",
+      "favorite": false,
+      "examples": [],
+      "relatedSkills": [],
+      "createdAt": "2025-06-04T12:53:28.877Z",
+      "tags": [
+        "可视化"
+      ],
+      "input": "Excel内容（可包含图片）",
+      "output": "风格统一的小红书图文笔记"
+    },
+    {
+      "id": "1749041720137",
+      "name": "抗遗忘记忆法",
+      "category": "其他",
+      "proficiency": 4,
+      "description": "",
+      "favorite": false,
+      "examples": [
+        {
+          "type": "link",
+          "content": "https://docs.qq.com/sheet/DRGlwT1hybExxdE5i?tab=57dw4a",
+          "title": "TOEFL听力训练"
+        }
+      ],
+      "relatedSkills": [],
+      "createdAt": "2025-06-04T12:55:20.137Z",
+      "input": "待记忆内容",
+      "output": "对抗艾宾浩斯遗忘曲线的每日学习内容规划",
+      "tags": [
+        "真嘟假嘟"
+      ]
+    },
+    {
+      "id": "1749305360044",
+      "name": "深度调研报告",
+      "tags": [
+        "深度调研",
+        "AI工具"
+      ],
+      "proficiency": 5,
+      "description": "借助Gemini的深度调研功能实现",
+      "input": "想要深度调研的话题",
+      "output": "调研报告",
+      "favorite": true,
+      "examples": [
+        {
+          "type": "link",
+          "content": "https://docs.google.com/document/d/1VhdScNefx6yZqtw7d-AAYfKHqAwzOlAqG6K0ISAxEVg/edit?tab=t.0",
+          "title": "党课“新质生产力”海淀实践主题调研"
+        },
+        {
+          "type": "link",
+          "content": "https://docs.google.com/document/d/1lGiNKGWUjh0kj2Z38-EsYTxUZGjRL34xUaoBxf6YeyM/edit?tab=t.0",
+          "title": "反面案例：天涯神贴对个人觉醒的启示"
+        },
+        {
+          "type": "link",
+          "content": "https://docs.google.com/document/d/1L16WDkfJK9aNtNnuqHakh-1Xbqz5gLo8FaeHDgk4gNg/edit?tab=t.0",
+          "title": "当代智者的思维模式"
+        },
+        {
+          "type": "link",
+          "content": "https://docs.google.com/document/d/162m6zEbczv7uArmyDGU_T9_AE4KAwdns0M-jHI5IhpI/edit?tab=t.0#heading=h.f7k1e1qoapoe",
+          "title": "能力SOP-深度调研报告"
+        },
+        {
+          "type": "link",
+          "content": "https://docs.google.com/document/d/1o_4o3Ay5S-xVxiQhMe9ElTrLlqByrH_6L1eDCzUlclM/edit?tab=t.0",
+          "title": "强化学习与LLM研究"
+        }
+      ],
+      "relatedSkills": [],
+      "createdAt": "2025-06-07T14:09:20.045Z"
+    },
+    {
+      "id": "1749305496283",
+      "name": "制作信息量巨大的网页",
+      "tags": [
+        "可视化",
+        "AI工具"
+      ],
+      "proficiency": 4,
+      "description": "借助Gemini的Canvas画布，或者是豆包的画布功能实现",
+      "input": "深度调研报告",
+      "output": "涵盖报告核心信息的网页",
+      "favorite": false,
+      "examples": [
+        {
+          "type": "link",
+          "content": "https://dreamerhua.github.io/dangke-PPT/",
+          "title": "党课“新质生产力-海淀实践”"
+        },
+        {
+          "type": "link",
+          "content": "https://docs.google.com/document/d/1QNs0Md0COY-H168jPhs71GO2MeS7Tx3RDDVNj-j5OJo/edit?tab=t.0#heading=h.ald0ojuv7q91",
+          "title": "能力SOP-制作信息量巨大的网页"
+        },
+        {
+          "type": "link",
+          "content": "https://dreamerhua.github.io/From-Employee-to-Entrepreneur/",
+          "title": "独立之路——从企业职工到一人企业创始人"
+        }
+      ],
+      "relatedSkills": [],
+      "createdAt": "2025-06-07T14:11:36.283Z"
+    },
+    {
+      "id": "1749562015129",
+      "name": "AI PPT",
+      "tags": [
+        "AI工具"
+      ],
+      "proficiency": 3,
+      "description": "借助AI PPT或者Google Slides内置的Slides.GPT实现",
+      "input": "PPT大纲",
+      "output": "PPT内容",
+      "favorite": false,
+      "examples": [
+        {
+          "type": "link",
+          "content": "https://docs.google.com/document/d/1LrlnXyuSdXuzTnN2-xDjaTxp6KfvRp-3gaLu-rv4_2g/edit?tab=t.0",
+          "title": "能力SOP-AI PPT"
+        },
+        {
+          "type": "link",
+          "content": "https://docs.google.com/presentation/d/1UCYax3tp7JPbrbB45ys3c9ouiF6aoC3w/edit?usp=drive_link&ouid=111389174099620189087&rtpof=true&sd=true",
+          "title": "微党课：科技创新驱动新质生产力发展"
+        }
+      ],
+      "relatedSkills": [],
+      "createdAt": "2025-06-10T13:26:55.129Z"
+    },
+    {
+      "id": "1750148629058",
+      "name": "提问式学习",
+      "tags": [
+        "核心能力"
+      ],
+      "proficiency": 4,
+      "description": "系统学习某主题，充分消除模糊的能力",
+      "input": "一个即将投入时间的项目",
+      "output": "整理好的问题清单",
+      "favorite": false,
+      "examples": [
+        {
+          "type": "link",
+          "content": "https://njsxtqpdpx.feishu.cn/base/GYpAbAZAvaCOGpsOlz2cTr2Cn5e?table=ldxBkXvOzZx1MKXG",
+          "title": "商业分析100个案例库"
+        }
+      ],
+      "relatedSkills": [],
+      "createdAt": "2025-06-17T08:23:49.058Z"
+    },
+    {
+      "id": "1750148829463",
+      "name": "项目管理",
+      "tags": [
+        "核心能力"
+      ],
+      "proficiency": 3,
+      "description": "这项技能，能够回答如下问题：\n1. 我是否应该投入一个项目？\n2. 如何系统理解项目的内容？\n3. 如何最大化项目价值，借助项目成为更好的自己？",
+      "input": "",
+      "output": "",
+      "favorite": false,
+      "examples": [
+        {
+          "type": "link",
+          "content": "https://docs.google.com/document/d/13SJdqs8F0Ncy5mmEfgSbpi5Vnw58RnhsuANTxhPR5Ug/edit?tab=t.0",
+          "title": "能力SOP-项目管理"
+        },
+        {
+          "type": "link",
+          "content": "https://njsxtqpdpx.feishu.cn/base/GYpAbAZAvaCOGpsOlz2cTr2Cn5e?table=ldxBkXvOzZx1MKXG",
+          "title": "商业分析100个案例库"
+        }
+      ],
+      "relatedSkills": [],
+      "createdAt": "2025-06-17T08:27:09.463Z"
+    }
+  ],
+  "tags": [
+    "可视化",
+    "真嘟假嘟",
+    "深度调研",
+    "AI工具",
+    "核心能力"
+  ],
+  "tagColors": {
+    "可视化": "#3b82f6",
+    "真嘟假嘟": "#c2185b",
+    "深度调研": "#f97316",
+    "AI工具": "#ec4899",
+    "核心能力": "#6366f1"
+  },
+  "nebulaViews": [
+    {
+      "id": "v_1749562065889",
+      "name": "可视化",
+      "positions": {
+        "1748962360448": {
+          "x": -170.11759072930053,
+          "y": -128.57798622093745
+        },
+        "1749027428672": {
+          "x": 38.577202613883685,
+          "y": 21.23275468990201
+        },
+        "1749040563069": {
+          "x": 95.65992620367093,
+          "y": -127.326498203425
+        },
+        "1749041490234": {
+          "x": -41.088761492273136,
+          "y": 173.46259399730957
+        },
+        "1749041608877": {
+          "x": -252.3304134120394,
+          "y": -123.97917770316522
+        },
+        "1749041720137": {
+          "x": 200.17673577300607,
+          "y": -114.34514023821725
+        },
+        "1749305360044": {
+          "x": -264.3978064713956,
+          "y": 19.841645765917974
+        },
+        "1749305496283": {
+          "x": -181.36524029202116,
+          "y": -9.810794317121378
+        },
+        "1749562015129": {
+          "x": -181.36547466351374,
+          "y": 48.39976648080625
+        }
+      },
+      "createdAt": "2025-06-10T13:27:45.889Z"
+    }
+  ]
+}
